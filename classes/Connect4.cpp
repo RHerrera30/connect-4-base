@@ -76,9 +76,10 @@ bool Connect4::actionForEmptyHolder(BitHolder &holder) //TODO
         if (square && !square->bit()){
             Bit* bit = PieceForPlayer(getCurrentPlayer()->playerNumber() == 0 ? HUMAN_PLAYER : AI_PLAYER);
             
-            square->setBit(bit);
+            square->setBit(bit); /// dedtination 
+            bit->setPosition(clicked->getPosition());
+            //Coming from top left corner for some reason?
             bit->moveTo(square->getPosition());
-            // bit->setPosition(square->getPosition());
             endTurn();
             return true;
         }
