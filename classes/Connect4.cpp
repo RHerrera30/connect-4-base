@@ -22,9 +22,9 @@ void Connect4::setUpBoard(){
     _grid->initializeSquares(80, "square.png");
     //_gameHasAnimalInstinct = true;  
 
-    if (gameHasAI()) {
-        setAIPlayer(AI_PLAYER);
-    }
+    // if (gameHasAI()) {
+    //     setAIPlayer(AI_PLAYER);
+    // }
 
     startGame();
 } 
@@ -66,27 +66,23 @@ bool Connect4::checkForDraw() {
 
 bool Connect4::actionForEmptyHolder(BitHolder &holder) //TODO 
 {
+    auto clicked = dynamic_cast<ChessSquare*>(&holder);
+   if (!clicked) return false;
     //take the column (row Y) something is clicked on
-
+   int col = clicked->getColumn();
     //put a bit on the top and make it move to the bottom 
-
-
-    if (holder.bit()) {
-        return false;
+    for(int row = CONNECT4_ROWS -1; row >= 0; --row){
+        auto* square = _grid->getSquare(col,row);
+        if (square && !square->bit()){
+            Bit* bit = PieceForPlayer(getCurrentPlayer()->playerNumber() == 0 ? HUMAN_PLAYER : AI_PLAYER);
+            
+            square->setBit(bit);
+            bit->moveTo(square->getPosition());
+            // bit->setPosition(square->getPosition());
+            endTurn();
+            return true;
+        }
     }
-    
-    
-    Bit *bit = PieceForPlayer(getCurrentPlayer()->playerNumber() == 0 ? HUMAN_PLAYER : AI_PLAYER);
-
-    //instead of placing it at that bit holder we want to find the top of the column
-    // and place it there then animate
-
-    if (bit) {
-        bit->setPosition(holder.getPosition());
-        holder.setBit(bit);
-        endTurn();
-        return true;
-    }   
 
     return false;
     
