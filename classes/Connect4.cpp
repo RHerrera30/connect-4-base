@@ -53,14 +53,74 @@ std::string Connect4::stateString(){
 
 
 Player* Connect4::checkForWinner() { //TODO 
-    return 0; 
+
+    Player* winner = 0;
+
+    /// iterate through every single cell 
+    for (int i = 0; i < CONNECT4_COLS; ++i){
+        for (int j = 0; j < CONNECT4_ROWS - 4; ++j){
+            
+        
+            /// check to see the adjacent three cells if they are the same color 
+
+            /// take the current square(i,j), get the current player color on that square
+            /// winner points to the current color 
+            ChessSquare* currentSquare = _grid->getSquare(i,j); 
+            if ( !currentSquare ) return nullptr;
+            Bit* bit = currentSquare->bit();
+            winner = bit ? bit->getOwner() : nullptr;
+            
+            
+            /// compare the squares->bit() north
+            // _grid->getSquare(i+1,j)->bit->getOwner()
+            // if (_grid->getSquare(i+1,j)->bit->getOwner() && _grid->getSquare(i+2,j)->bit()->getOwner && _grid->getSquare(i+3,j)){
+            //     return winner;
+            // }
+            if (owner(i+1,j) == winner && owner(i+2,j) == winner && owner(i+3,j) == winner ){
+                std::cout << "owner at i: "  << winner << std::endl; 
+                std::cout << "owner at i + 1: "  << owner(i+1,j) << std::endl; 
+                std::cout << "owner at i + 2: "  << owner(i+2,j) << std::endl; 
+                std::cout << "owner at i + 3: "  << owner(i+3,j) << std::endl; 
+
+                std::cout << "something happened "  << std::endl; 
+                return winner; 
+
+            }
+        
+            /// compare the squares to the east
+            /// compare the squares->bit() south
+            /// compare the squares->bit() west
+            /// compare the squares->bit() northeast
+            /// compare the squares->bit() southeast
+            /// compare the squares->bit() northwest
+            /// compare the squares->bit() southwest
+        }
+    }
+
+    return nullptr; 
+}
+
+
+Player* Connect4::owner(int i, int j){
+    ChessSquare* currentSquare = _grid->getSquare(i,j); 
+    if ( !currentSquare ) return nullptr;
+    Bit* bit = currentSquare->bit();
+    return bit ? bit->getOwner() : nullptr;
 }
 
 
 
-
 bool Connect4::checkForDraw() {
-    return false;
+    
+    //stole directly from tic tac toe
+     bool isDraw = true;
+    // check to see if the board is full
+    _grid->forEachSquare([&isDraw](ChessSquare* square, int x, int y) {
+        if (!square->bit()) {
+            isDraw = false;
+        }
+    });
+    return isDraw;
 }
 
 
@@ -76,9 +136,8 @@ bool Connect4::actionForEmptyHolder(BitHolder &holder) //TODO
         if (square && !square->bit()){
             Bit* bit = PieceForPlayer(getCurrentPlayer()->playerNumber() == 0 ? HUMAN_PLAYER : AI_PLAYER);
             
-            square->setBit(bit); /// dedtination 
+            square->setBit(bit); /// destination 
             bit->setPosition(clicked->getPosition());
-            //Coming from top left corner for some reason?
             bit->moveTo(square->getPosition());
             endTurn();
             return true;
