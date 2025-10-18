@@ -22,9 +22,9 @@ void Connect4::setUpBoard(){
     _grid->initializeSquares(80, "square.png");
     //_gameHasAnimalInstinct = true;  
 
-    // if (gameHasAI()) {
-    //     setAIPlayer(AI_PLAYER);
-    // }
+    if (gameHasAI()) {
+        setAIPlayer(AI_PLAYER);
+    }
 
     startGame();
 } 
@@ -36,7 +36,15 @@ std::string Connect4::initialStateString(){
 
 // Not critical, this is only used for loading from a file
 void Connect4::setStateString(const std::string &s){ //TODO
-    
+    _grid->forEachSquare([&](ChessSquare* square, int x, int y) {
+        int index = y * 7 + x;
+        int playerNumber = s[index] - '0';
+        if (playerNumber) {
+            square->setBit(PieceForPlayer(playerNumber-1));
+        } else {
+            square->setBit(nullptr);
+        }
+    });
 }
 
 
@@ -53,47 +61,32 @@ std::string Connect4::stateString(){
 
 
 Player* Connect4::checkForWinner() { //TODO 
-
-    Player* winner = 0;
-
     /// iterate through every single cell 
-    for (int i = 0; i < CONNECT4_COLS; ++i){
-        for (int j = 0; j < CONNECT4_ROWS - 4; ++j){
+    for (int column = 0; column < CONNECT4_COLS; column++){
+        for (int row = 0; row < CONNECT4_ROWS ; row++){
             
-        
-            /// check to see the adjacent three cells if they are the same color 
-
-            /// take the current square(i,j), get the current player color on that square
-            /// winner points to the current color 
-            ChessSquare* currentSquare = _grid->getSquare(i,j); 
-            if ( !currentSquare ) return nullptr;
-            Bit* bit = currentSquare->bit();
-            winner = bit ? bit->getOwner() : nullptr;
+        Player* player = owner(column, row);
+            if (!player) continue; // skip empty squares
             
-            
-            /// compare the squares->bit() north
-            // _grid->getSquare(i+1,j)->bit->getOwner()
-            // if (_grid->getSquare(i+1,j)->bit->getOwner() && _grid->getSquare(i+2,j)->bit()->getOwner && _grid->getSquare(i+3,j)){
-            //     return winner;
-            // }
-            if (owner(i+1,j) == winner && owner(i+2,j) == winner && owner(i+3,j) == winner ){
-                std::cout << "owner at i: "  << winner << std::endl; 
-                std::cout << "owner at i + 1: "  << owner(i+1,j) << std::endl; 
-                std::cout << "owner at i + 2: "  << owner(i+2,j) << std::endl; 
-                std::cout << "owner at i + 3: "  << owner(i+3,j) << std::endl; 
+            //check all directions for a run of 4
+            auto hasRun = [&](int deltaX, int deltaY) -> bool {
+                for (int step = 1; step < 4; ++step){
+                    int checkX = column + deltaX * step;
+                    int checkY = row + deltaY * step;
 
-                std::cout << "something happened "  << std::endl; 
-                return winner; 
+                    //check if out of bounds
+                    if(checkX < 0 || checkX >= CONNECT4_COLS || checkY < 0 || checkY >= CONNECT4_ROWS) {
+                        return false;
+                    }
+                    if (owner(checkX, checkY) != player) {return false ;}
+                }
+                return true;
+            };
 
+
+            if (hasRun(1,0) || hasRun(0,1) || hasRun(1,1) || hasRun(1,-1)) {
+                return player;
             }
-        
-            /// compare the squares to the east
-            /// compare the squares->bit() south
-            /// compare the squares->bit() west
-            /// compare the squares->bit() northeast
-            /// compare the squares->bit() southeast
-            /// compare the squares->bit() northwest
-            /// compare the squares->bit() southwest
         }
     }
 
@@ -172,9 +165,9 @@ void Connect4::stopGame()
 //
 // helper function for the winner check
 //
-Player* Connect4::ownerAt(int index ) const
+Player* Connect4::ownerAt(int index ) const // pass in the index of the grid, not the space? 
 {
-    auto square = _grid->getSquare(index % 6, index / 7);
+    auto square = _grid->getSquare(index % 7, index / 7);
     if (!square || !square->bit()) {
         return nullptr;
     }
@@ -198,11 +191,46 @@ Bit* Connect4::PieceForPlayer(const int playerNumber)
 // AI Section Downward
 
 void Connect4::updateAI() {
+    int bestVal = -10000;
+    int bestMove = -1;
+    std::string state = stateString();
+
+    for( int column = 0; column < CONNECT4_COLS; column++){
+        int lowestRow = -1;
+        for (int row = CONNECT4_ROWS - 1 ; row >= 0; row--){
+            int index = row * CONNECT4_COLS + column;
+            if (state[index] == '0'){
+                lowestRow = row;
+                break;
+            }
+        }
+
+        if (lowestRow == -1) continue;
+
+        int index = lowestRow * CONNECT4_COLS + column;
+        state[index] = '2';
+        int moveTaken = -negamax(state, 0, HUMAN_PLAYER);
+
+        state[index] = '0'; //undo move
+
+        if (moveTaken > bestVal){
+            bestVal = moveTaken;
+            bestMove = column; 
+        }
+    }
+    
+    // Actually make the best move
+    if (bestMove != -1) {
+        auto* topSquare = _grid->getSquare(bestMove, 0);
+        if (topSquare) {
+            actionForEmptyHolder(*topSquare);
+        }      
+    }
+
+
 
 }
-
-
-static int evaluateAIBoard(const std::string& state){
+int evaluateteAIBoard(const std::string& stat e){
     const int values[] = {
         1,1,2,3,2,1,1,
         1,1,2,3,2,1,1,
@@ -213,9 +241,9 @@ static int evaluateAIBoard(const std::string& state){
     };
 
     int value = 0;
-    for(int index = 0; index < (CONNECT4_COLS * CONNECT4_ROWS); index++){
+    for(int index 0; index < (CONNECT4_COLS * CONNECT4_ROWS); index++) {
         char piece = state[index];
-        if(piece != '0'){
+        if (piece != '0') {
             value += piece == '1' ? values[index] : -values[index];
         }
     }
@@ -229,31 +257,38 @@ static bool isAIBoardFull(const std::string& state) {
 int Connect4::negamax(std::string& state, int depth, int playerColor) 
 {
     int score = evaluateAIBoard(state);
-
     // Check if AI wins, human wins, or draw
-    if(depth == 5) { 
+    if(depth == 2) { 
         // A winning state is a loss for the player whose turn it is.
         // The previous player made the winning move.
-        return score * playerColor; 
+         return evaluateAIBoard(state) * playerColor;
     }
 
     if(isAIBoardFull(state)) {
         return 0; // Draw
     }
 
-    int bestVal = -1000; // Min value
-    for (int y = 0; y < 3; y++) {
-        for (int x = 0; x < 3; x++) {
-            // Check if cell is empty
-            if (state[y * 3 + x] == '0') {
-                // Make the move
-                state[y * 3 + x] = playerColor == HUMAN_PLAYER ? '1' : '2'; // Set the cell to the current player's color
-                bestVal = std::max(bestVal, -negamax(state, depth + 1, -playerColor));
-                // Undo the move for backtracking
-                state[y * 3 + x] = '0';
+    int bestVal = -10000; // Min value
+    for (int col = 0; col < CONNECT4_COLS; col++) {
+
+        //lowest empty row 
+        int lowestRow = -1;
+        for (int row = CONNECT4_ROWS - 1 ; row >= 0; row-- ){
+            int index = row * CONNECT4_COLS + col; 
+            if (state[index] == '0'){
+                lowestRow = row;
+                break;
             }
         }
+        if (lowestRow == -1) continue; // Column is full
+
+        int index = lowestRow * CONNECT4_COLS + col;
+        state[index] = playerColor == HUMAN_PLAYER ? '1' : '2';
+        
+        int moveTaken = -negamax(state, depth + 1, -playerColor);
+        
     }
 
     return bestVal;
 }
+            //   state[index] = '0';  // Undo the move!    return
