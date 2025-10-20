@@ -22,9 +22,9 @@ void Connect4::setUpBoard(){
     _grid->initializeSquares(80, "square.png");
     //_gameHasAnimalInstinct = true;  
 
-    if (gameHasAI()) {
-        setAIPlayer(AI_PLAYER);
-    }
+    // if (gameHasAI()) {
+    //     setAIPlayer(AI_PLAYER);
+    // }
 
     startGame();
 } 
