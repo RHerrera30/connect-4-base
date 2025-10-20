@@ -1,4 +1,5 @@
 #include "Connect4.h"
+#include <iostream>
 
 #define CONNECT4_COLS 7
 #define CONNECT4_ROWS 6
@@ -127,7 +128,7 @@ bool Connect4::actionForEmptyHolder(BitHolder &holder) //TODO
     for(int row = CONNECT4_ROWS -1; row >= 0; --row){
         auto* square = _grid->getSquare(col,row);
         if (square && !square->bit()){
-            Bit* bit = PieceForPlayer(getCurrentPlayer()->playerNumber() == 0 ? HUMAN_PLAYER : AI_PLAYER);
+            Bit* bit = PieceForPlayer(getCurrentPlayer()->playerNumber());
             
             square->setBit(bit); /// destination 
             bit->setPosition(clicked->getPosition());
@@ -182,8 +183,9 @@ Bit* Connect4::PieceForPlayer(const int playerNumber)
     // depending on playerNumber load the "x.png" or the "o.png" graphic
     Bit *bit = new Bit();
     // should possibly be cached from player class?
-    bit->LoadTextureFromFile(playerNumber == AI_PLAYER ? "red.png" : "yellow.png");
-    bit->setOwner(getPlayerAt(playerNumber == AI_PLAYER ? 1 : 0));
+    bool isAI = (getAIPlayer() == playerNumber);
+    bit->LoadTextureFromFile(isAI ? "red.png" : "yellow.png");
+    bit->setOwner(getPlayerAt(playerNumber));
     return bit;
 }
 
@@ -194,6 +196,9 @@ void Connect4::updateAI() {
     int bestVal = -10000;
     int bestMove = -1;
     std::string state = stateString();
+    
+    std::cout << "\n=== AI MOVE EVALUATION ===" << std::endl;
+    std::cout << "Current board state: " << state << std::endl;
 
     for( int column = 0; column < CONNECT4_COLS; column++){
         int lowestRow = -1;
@@ -205,19 +210,32 @@ void Connect4::updateAI() {
             }
         }
 
-        if (lowestRow == -1) continue;
+        if (lowestRow == -1) {
+            //std::cout << "Column " << column << ": FULL (skipped)" << std::endl;
+            continue;
+        }
 
         int index = lowestRow * CONNECT4_COLS + column;
-        state[index] = '2';
-        int moveTaken = -negamax(state, 0, HUMAN_PLAYER);
+        //std::cout << "Column " << column << ": placing at row " << lowestRow << " (index " << index << ")" << std::endl;
+        
+        char aiChar = '0' + (getAIPlayer() + 1);
+        state[index] = aiChar;
+        int moveTaken = -negamax(state, 0, getHumanPlayer());
+        //std::cout << "  -> negamax returned: " << moveTaken << std::endl;
 
         state[index] = '0'; //undo move
 
         if (moveTaken > bestVal){
+            //std::cout << "  -> NEW BEST! (was " << bestVal << ", now " << moveTaken << ")" << std::endl;
             bestVal = moveTaken;
             bestMove = column; 
+        } else {
+            //std::cout << "  -> not better than current best " << bestVal << std::endl;
         }
     }
+    
+    //std::cout << "FINAL DECISION: Column " << bestMove << " with score " << bestVal << std::endl;
+    //std::cout << "=========================" << std::endl;
     
     // Actually make the best move
     if (bestMove != -1) {
@@ -230,21 +248,33 @@ void Connect4::updateAI() {
 
 
 }
-int evaluateteAIBoard(const std::string& stat e){
+int evaluateAIBoard(const std::string& state){
     const int values[] = {
-        1,1,2,3,2,1,1,
-        1,1,2,3,2,1,1,
-        1,1,2,5,2,1,1,
-        1,1,2,5,2,1,1,
-        2,1,2,3,2,1,1,
-        2,1,2,3,2,1,2
+        3,3,2,1,2,3,3,
+        3,3,2,1,2,3,3,
+        5,3,2,1,2,3,5,
+        5,3,2,1,2,3,5,
+        3,3,2,1,2,3,3,
+        3,3,2,1,2,3,3
     };
 
+    // const int values[] = {
+    //     1,1,2,3,2,1,1,
+    //     1,1,2,3,2,1,1,
+    //     1,1,2,5,2,1,1,
+    //     1,1,2,5,2,1,1,
+    //     2,1,2,3,2,1,1,
+    //     2,1,2,3,2,1,2
+    // };
+
     int value = 0;
-    for(int index 0; index < (CONNECT4_COLS * CONNECT4_ROWS); index++) {
+    for(int index = 0; index < (CONNECT4_COLS * CONNECT4_ROWS); index++) {
         char piece = state[index];
         if (piece != '0') {
-            value += piece == '1' ? values[index] : -values[index];
+            int pieceValue = piece == '1' ? values[index] : -values[index];
+            value += pieceValue;
+            // Uncomment next line for very detailed evaluation debugging:
+            // std::cout << "    idx " << index << " (col " << (index%7) << ", row " << (index/7) << "): piece '" << piece << "' value " << pieceValue << std::endl;
         }
     }
     return value;
@@ -256,39 +286,68 @@ static bool isAIBoardFull(const std::string& state) {
 
 int Connect4::negamax(std::string& state, int depth, int playerColor) 
 {
-    int score = evaluateAIBoard(state);
-    // Check if AI wins, human wins, or draw
-    if(depth == 2) { 
-        // A winning state is a loss for the player whose turn it is.
-        // The previous player made the winning move.
-         return evaluateAIBoard(state) * playerColor;
+    std::string indent(depth * 2, ' ');
+    //std::cout << indent << "negamax(depth=" << depth << ", player=" << playerColor << ")" << std::endl;
+    
+    // static evaluation
+    int eval = evaluateAIBoard(state);
+    //std::cout << indent << "  static eval: " << eval << std::endl;
+
+    // depth limit: return evaluation from current player's perspective
+    const int MAX_DEPTH = 2;
+    if (depth >= MAX_DEPTH) {
+        int result = eval * playerColor;
+        //std::cout << indent << "  MAX DEPTH reached, returning: " << result << std::endl;
+        return result;
     }
 
-    if(isAIBoardFull(state)) {
+    if (isAIBoardFull(state)) {
+       // std::cout << indent << "  BOARD FULL, returning 0" << std::endl;
         return 0; // Draw
     }
 
-    int bestVal = -10000; // Min value
-    for (int col = 0; col < CONNECT4_COLS; col++) {
+    int bestVal = -100000;
+    std::cout << indent << "  trying moves:" << std::endl;
 
-        //lowest empty row 
+    for (int col = 0; col < CONNECT4_COLS; col++) {
+        // find lowest empty row in this column
         int lowestRow = -1;
-        for (int row = CONNECT4_ROWS - 1 ; row >= 0; row-- ){
-            int index = row * CONNECT4_COLS + col; 
-            if (state[index] == '0'){
+        for (int row = CONNECT4_ROWS - 1; row >= 0; row--) {
+            int idx = row * CONNECT4_COLS + col;
+            if (state[idx] == '0') {
                 lowestRow = row;
                 break;
             }
         }
-        if (lowestRow == -1) continue; // Column is full
+        if (lowestRow == -1) {
+            //std::cout << indent << "    col " << col << ": FULL" << std::endl;
+            continue; // Column is full
+        }
 
-        int index = lowestRow * CONNECT4_COLS + col;
-        state[index] = playerColor == HUMAN_PLAYER ? '1' : '2';
-        
-        int moveTaken = -negamax(state, depth + 1, -playerColor);
-        
+        int idx = lowestRow * CONNECT4_COLS + col;
+        // place the piece for current player
+        char playerChar = '0' + (playerColor + 1);
+        state[idx] = playerChar;
+        //std::cout << indent << "    col " << col << ": placed '" << state[idx] << "' at idx " << idx << std::endl;
+
+        // evaluate recursively (negate for opponent)
+        int val = -negamax(state, depth + 1, -playerColor);
+        //std::cout << indent << "    col " << col << ": recursive result = " << val << std::endl;
+
+        // undo move
+        state[idx] = '0';
+
+        if (val > bestVal) {
+            //std::cout << indent << "    col " << col << ": NEW BEST (" << val << " > " << bestVal << ")" << std::endl;
+            bestVal = val;
+        }
     }
 
+    if (bestVal == -100000) {
+        //std::cout << indent << "  NO MOVES FOUND, returning 0" << std::endl;
+        return 0;
+    }
+    
+    //std::cout << indent << "  returning bestVal: " << bestVal << std::endl;
     return bestVal;
 }
-            //   state[index] = '0';  // Undo the move!    return

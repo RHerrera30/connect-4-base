@@ -24,6 +24,7 @@ public:
     bool        gameHasAI() override { return true; }
     Grid* getGrid() override { return _grid; }
     Player*     owner(int i, int j); 
+    void        destroyComputer();
 
 private:
     Bit *       PieceForPlayer(const int playerNumber);

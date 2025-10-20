@@ -57,9 +57,20 @@ namespace ClassGame {
                         game = new Othello();
                         game->setUpBoard();
                     }
-                    if (ImGui::Button("Start Connect4")) {
+                    // if (ImGui::Button("Start Connect4")) {
+                    //     game = new Connect4();
+                    //     game->setUpBoard();
+                    // }
+
+                    if (ImGui::Button("Start Connect 4 AI First")) {
                         game = new Connect4();
                         game->setUpBoard();
+                        game->setAIPlayer(0);
+                    }
+                    if (ImGui::Button("Start Connect 4 AI Second")) {
+                        game = new Connect4();
+                        game->setUpBoard();
+                        game->setAIPlayer(1);
                     }
                 } else {
                     ImGui::Text("Current Player Number: %d", game->getCurrentPlayer()->playerNumber());
